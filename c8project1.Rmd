@@ -1,0 +1,79 @@
+---
+title: 'Peer Assignments : Practical Machine Learning'
+output: html_document
+---
+
+### Summary
+- I cleaned the data and PCA analysis by using prcomp()
+
+- I used 9 predictors that capture 95% of the data variability and the random forest function for more accuracy
+
+- Overall accuracy is 85.3% 
+
+- I used only 20% of training data set for cross validation, because the process of predition takes a lot of time. 
+
+- So, it can be improved by changing training vs testing set ratio, but there is also the risk of overfitting.
+
+
+
+### Process 
+1. Load Raw Data
+```{r}
+testing <- read.csv("C:/Users/yasego/Documents/Data Science/Data/pml-testing.csv", na.strings = c("", NA))
+training <- read.csv("C:/Users/yasego/Documents/Data Science/Data/pml-training.csv", na.strings = c("", NA))
+```
+
+2. Cleansing Data
+```{r}
+filter1 <- c()
+
+for( i in 1:dim(training)[2])
+{
+        ## Filter 1 : columns that have more than 50%  NA data 
+        if( sum(is.na(training[,i])) <= dim(training)[1]*0.5)
+        filter1 <- c(filter1,i)
+}
+## Filter 2:  columns that have invalid data based on name
+filter2 <- grep("belt|arm|dumbbell|classe",names(training))
+
+## Filter 3:  coombine 1 & 2
+filter3 <- filter2[filter2 %in% filter1]
+
+clean <- training[,filter3]
+```
+
+3. Corss Validation
+```{r}
+library(caret)
+set.seed(12345)
+# Use 20% of training data, because the size of data is big. 
+inTrain <- createDataPartition(y=clean$classe, 
+                               p = 0.2, list = FALSE )
+
+clean_train <- clean[inTrain,]
+clean_test <- clean[-inTrain,]
+```
+
+4. PCA 
+```{r}
+r <- prcomp( ~.,data = clean_train[,-53])
+summary(r)
+# 9 facgors capture 95% of the data variability
+pca <- rownames(r$rotation)[1:9]
+
+clean_train_pca <- clean_train[,pca]
+clean_train_pca$classe <- clean_train$classe
+```
+
+5. Random Forest Prediction
+```{r}
+library(randomForest)
+modFit <- train(classe ~ ., method="rf", data=clean_train_pca, prox = TRUE)
+
+pred <- predict(modFit, clean_test)
+```
+
+6. Result : Confusion Matrix
+```{r}
+confusionMatrix(pred, clean_test$classe)
+```
